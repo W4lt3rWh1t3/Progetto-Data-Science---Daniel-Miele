@@ -1,0 +1,172 @@
+---
+title: "Fondamenti di Scienza dei Dati"
+author: "Daniel Miele"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r message=FALSE, warning=FALSE}
+setwd("C:/Users/danie/OneDrive - Università degli Studi di Udine/uni/primo anno/data science/RStudio_project")
+
+library("dplyr")
+library(ggplot2)
+library(gganimate)
+library(gapminder)
+library(tidyr)
+library(readr)
+library(stringr)
+library("scales")
+library(ggrepel)
+
+blockbuster = read.csv("movie_metadata.csv", header = TRUE, sep = ",")
+blockbuster$genres = sapply(strsplit(blockbuster$genres, "\\|"), function(x) x[1])
+
+
+principal_table = blockbuster %>%
+  filter(genres == "Action" | genres == "Horror" | genres == "Thriller" | genres == "Comedy" | genres == "Drama" | genres == "Animation" | genres == "Adventure" | genres == "Sci-Fi")
+
+
+sostituzioni = c("Action" = "Azione", "Horror" = "Horror", "Thriller" = "Thriller", "Comedy" = "Commedia", "Drama" = "Drammatico", "Animation" = "Animazione", "Adventure" = "Avventura", "Sci-Fi" = "Fantascienza")
+
+
+principal_table = principal_table %>%
+  mutate(genres = sostituzioni[genres])
+
+
+drama_films = principal_table %>%
+  filter(genres == "Drammatico")
+
+
+drama_directors = blockbuster %>%
+  filter(director_name == "James Cameron" | director_name == "Quentin Tarantino" | director_name == "Ridley Scott" | director_name == "Christopher Nolan" | director_name == "Steven Spielberg" | director_name == "Martin Scorsese" | director_name == "Clint Eastwood")
+
+
+drama_actor1 = principal_table %>%
+  filter(actor_1_name == "Leonardo DiCaprio" | actor_1_name == "Brad Pitt" | actor_1_name == "Tom Hanks" | actor_1_name == "Johnny Depp" | actor_1_name == "Tom Cruise" | actor_1_name == "Scarlett Johansson" | actor_1_name == "Robert Downey Jr." | actor_1_name == "Kevin Spacey" | actor_1_name == "Emma Stone" | actor_1_name == "Ryan Gosling" | actor_1_name == "Matt Damon")
+
+
+duration_table = blockbuster %>%
+  mutate(duration_category = case_when(
+    duration > 90 & duration <= 120 ~ "90-120",
+    duration > 120 & duration <= 150 ~ "120-150",
+    duration > 150 & duration <= 180 ~ "150-180",
+    duration > 180 ~ "180+"
+  ))
+
+duration_table = duration_table %>%
+  filter(duration_category == "90-120" | duration_category == "120-150" | duration_category == "150-180" | duration_category == "180+")
+
+
+order_of_categories <- c("90-120", "120-150", "150-180", "180+")
+duration_table$duration_category <- factor(duration_table$duration_category, levels = order_of_categories)
+
+
+
+```
+
+## Come si crea un film di successo?
+
+Negli ultimi anni, si è sentito spesso parlare di crisi cinematografica, non solo del cinama italiano, ma anche di quello internazionale.
+
+Lo studio che andrò a esporre è dunque mirato a scoprire in che modo si possa creare un film di successo partendo dai dati forniti.
+
+Le domande che mi sono posto per creare un film di successo sono:
+
+- Qual è il genere migliore?
+
+- Chi è il miglior regista?
+
+- Chi è la star migliore?
+
+- Qual è la durata perfetta?
+
+## Dataset
+
+Per questo progetto, è stato utilizzato il seguente dataset scaricato dal sito [Kaggle](https://www.kaggle.com/):
+
+[IMDb 5000 Movie Dataset](https://www.kaggle.com/datasets/carolzhangdc/imdb-5000-movie-dataset).
+
+Le variabili prese in considerazione per questo studio sono state: durata, genere, valutazione di IMDb, regista, star principale, fatturato e budget.
+
+## Genere
+
+Per capire quale sia il genere che crea recensioni più positive, è necessario calcolare la valutazione di IMDb media per ogni genere.
+
+```{r message=FALSE, warning=FALSE}
+ggplot(data = principal_table) +
+  geom_boxplot(mapping = aes(x = reorder(genres, imdb_score, FUN = median), y = imdb_score)) +
+  labs(title = "Il miglior genere è: Dramattico", caption = "Fonte: Kaggle.com", x = "Generi", y = "Valutazione di IMDb", colour = "Generi")
+```
+
+## Regista
+
+Le disponibilità finanziarie per creare una pellicola non devono essere sottovalutate. Dunque, è necessario trovare il regista che col minor budget crei il miglior prodotto possibile.
+
+```{r message=FALSE, warning=FALSE}
+ggplot(data = drama_directors, mapping = aes(x = imdb_score, y = budget, color = director_name)) +
+  geom_point() +
+  geom_smooth() +
+  scale_y_continuous(labels = comma_format(big.mark = ".", decimal.mark = ",", scale = 1e-6), limits = c(0, 200000000)) +
+  labs(title = "Il miglior regista è: Quentin Tarantino.", caption = "Fonte: Kaggle.com", x = "Valutazione di IMDb", y = "Budget in milioni di $", colour = "Registi")
+```
+
+## Star
+
+È fondamentale scegliere il protagonista perfetto tenendo conto della valutazione IMDb dei film in cui ha partecipato e il fatturato che il film ha generato anche grazie alla star principale.
+
+```{r message=FALSE, warning=FALSE}
+ggplot(data = blockbuster, mapping = aes(x = gross, y = imdb_score)) +
+  geom_point() +
+  geom_smooth() +
+  scale_x_continuous(labels = comma_format(big.mark = ".", decimal.mark = ",", scale = 1e-6)) +
+  labs(title = "Dal grafico si può notare una regressione tra le variabili, quindi c'è correlazione.", caption = "Fonte: Kaggle.com", x = "Fatturato in milioni di $", y = "Valutazione di IMDb")
+```
+
+
+## Star
+
+```{r message=FALSE, warning=FALSE}
+ggplot(data = drama_actor1, mapping = aes(x = gross, y = imdb_score, color = actor_1_name)) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  scale_x_continuous(labels = comma_format(big.mark = ".", decimal.mark = ",", scale = 1e-6)) +
+  labs(title = "La migliore star è: Leonardo DiCaprio.", caption = "Fonte: Kaggle.com", x = "Fatturato in milioni di $", y = "Valutazione di IMDb", colour = "Attori")
+```
+
+## Durata
+
+Il minutaggio di un film deve essere tale da non annoiare lo spettatore ma, al contempo, abbastanza ampio da poter sviluppare una trama intrigante.
+
+```{r message=FALSE, warning=FALSE}
+ggplot(data = drama_films, mapping = aes(x = imdb_score, y = duration)) +
+  geom_point() +
+  geom_smooth() +
+  labs(title = "In generale, non è vero che un film è più apprezzato se dura di più.", caption = "Fonte: Kaggle.com", x = "Valutazione di IMDb", y = "Durata in minuti")
+```
+
+## Durata
+
+```{r message=FALSE, warning=FALSE}
+ggplot(data = duration_table, mapping = aes(x = gross, y = imdb_score)) +
+  geom_point() +
+  geom_smooth(mapping = aes(color = duration_category), se = FALSE) +
+  labs(title = "In generale, un film di successo dura mediamente tra i 150 e i 180 minuti.", caption = "Fonte: Kaggle.com", x = "Fatturato in milioni di $", y = "Valutazione di IMDb", color = "Intervallo di durata in minuti") +
+  scale_x_continuous(labels = comma_format(big.mark = ".", decimal.mark = ",", scale = 1e-6))
+```
+
+
+## Conclusioni
+
+Ricapitolando, per creare un film di successo è necessario:
+
+1. scegliere il genere drammatico;
+
+2. farlo girare a Quentin Tarantino;
+
+3. ingaggiare Leonardo DiCaprio;
+
+4. farlo durare tra i 150 e i 180 minuti.
+
